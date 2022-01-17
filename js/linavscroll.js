@@ -1,3 +1,5 @@
+/* ------------- -------------------- */
+
 // Helper para crear animaciones fluidas
 let liRequestAnimFrame = (function () {
     return window.requestAnimationFrame || function (callback) {
@@ -54,6 +56,79 @@ function liScrollTo({ to, duration = 500, callback }) {
     animateScroll();
 }
 
+/* ------------- -------------------- */
+
+class liScrollObserver{
+    constructor(){
+        this.header = document.querySelector('#linavscroll_container');
+        this.sections = [...document.querySelectorAll('h2')];
+        this.scrollRoot = document.querySelector('body');
+        this.headerLinks = [...document.querySelectorAll('#linavscroll_container a')];
+
+        this.prevYPosition = 0;
+        this.direction = 'up';
+
+        this.observer = new IntersectionObserver(this.onIntersect, {
+            root: this.scrollRoot,
+            rootMargin: '0px 0px',
+            threshold: 0
+        })
+
+        this.sections.forEach((section) => {
+            this.observer.observe(section)
+        })
+    }
+
+    getTargetSection = (entry) => {
+        const index = this.sections.findIndex((section) => section == entry.target)
+
+        if (index >= this.sections.length - 1) {
+            return entry.target
+        } else {
+            return this.sections[index + 1]
+        }
+    }
+    shouldUpdate = (entry) => {
+        if (this.direction === 'down' && !entry.isIntersecting) {
+            return true
+        }
+
+        if (this.direction === 'up' && entry.isIntersecting) {
+            return true
+        }
+
+        return false
+    }
+
+    onIntersect = (entries, observer) => {
+        console.log(entries);
+        entries.forEach((entry) => {
+            if (this.scrollRoot.scrollTop > this.prevYPosition) this.direction = 'down'
+            else this.direction = 'up'
+
+            this.prevYPosition = this.scrollRoot.scrollTop
+
+            const target = this.direction === 'down' ? this.getTargetSection(entry) : entry.target
+
+            if (this.shouldUpdate(entry)) this.updateMarker(target)
+        })
+    }
+
+    updateMarker = (target) => {
+
+        let active = this.header.querySelector('a.linavscroll_active');
+        if (active) active.classList.remove('linavscroll_active');
+
+        active = this.header.querySelector('a[href="#' + target.id + '"]');
+        active.classList.add('linavscroll_active');
+
+    }
+
+}
+
+
+/* ------------- -------------------- */
+
 class liNavScroll{
 
     constructor({ nav_container, section_headers, active_class}){
@@ -62,6 +137,8 @@ class liNavScroll{
         this.active_class = active_class;
 
         this.generateNav();
+
+        new liScrollObserver;
     }
 
     generateLink(section){
