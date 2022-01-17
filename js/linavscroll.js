@@ -1,4 +1,132 @@
-/* ------------- -------------------- */
+/* ----- Navegación Scroll Automática con marcadores ----- */
+class liNavScroll {
+
+    constructor({ nav_container, section_selector, active_class, root_container }) {
+        this.nav_container = document.querySelector(nav_container);
+        this.section_selector = document.querySelectorAll(section_selector);
+        this.active_class = active_class;
+        this.root_container = root_container || 'body';
+        this.root_container = document.querySelector(root_container);
+
+        this.generateNav();
+
+        new liScrollObserver({
+            root_container: root_container,
+            section_selector: section_selector,
+            callback: (target) => {
+                this.updateMarker({
+                    target: "#" + target.id,
+                    nav_container: this.nav_container,
+                    active_class: this.active_class
+                });
+            }
+        });
+    }
+
+    generateLink(section) {
+        let link = document.createElement("a");
+        link.innerHTML = section.innerHTML;
+        link.href = "#" + section.id;
+
+        link.addEventListener("click", e => {
+            e.preventDefault();
+
+            const destino = liOffset(section, this.root_container);
+
+            liScrollTo({
+                to: destino.top,
+                root: this.root_container,
+                callback: () => {
+                    this.updateMarker({
+                        target: "#" + section.id,
+                        nav_container: this.nav_container,
+                        active_class: this.active_class
+                    });
+                }
+            });
+        });
+
+        return link;
+    }
+
+    generateNav() {
+        for (let i = 0; i < this.section_selector.length; i++) {
+            const section = this.section_selector[i];
+
+            const newlink = this.generateLink(section);
+
+            this.nav_container.appendChild(newlink);
+        }
+    }
+
+    updateMarker({ target, nav_container, active_class }) {
+
+        let active = nav_container.querySelector('.' + active_class) || false;
+        if (active) active.classList.remove(active_class);
+
+        active = nav_container.querySelector('a[href="' + target + '"]');
+        active.classList.add(active_class);
+    }
+}
+
+/* ----- Implementación de la api IntersectionObserver ----- */
+class liScrollObserver{
+    constructor({ section_selector, root_container, callback}){
+        this.sections = [...document.querySelectorAll(section_selector)];
+        this.root_container = document.querySelector(root_container);
+        this.callback = callback;
+
+        this.prevYPosition = 0;
+        this.direction = 'up';
+
+        this.observer = new IntersectionObserver(this.onIntersect, {
+            root: this.root_container,
+            rootMargin: '0px 0px',
+            threshold: 0.75
+        });  
+
+        this.sections.forEach((section) => {
+            this.observer.observe(section);
+        });
+    }
+
+    getTargetSection = (entry) => {
+        const index = this.sections.findIndex((section) => section == entry.target)
+
+        if (index >= this.sections.length - 1) {
+            return entry.target;
+        } else {
+            return this.sections[index + 1];
+        }
+    }
+    shouldUpdate = (entry) => {
+        if (this.direction === 'down' && entry.intersectionRatio <= 0.75) {
+            return true;
+        }
+
+        if (this.direction === 'up' && entry.intersectionRatio >= 0.75) {
+            return true;
+        }
+
+        return false;
+    }
+
+    onIntersect = (entries, observer) => {
+        entries.forEach((entry) => {
+            if (this.root_container.scrollTop > this.prevYPosition) this.direction = 'down';
+            else this.direction = 'up';
+
+            this.prevYPosition = this.root_container.scrollTop;
+
+            const target = this.direction === 'down' ? this.getTargetSection(entry) : entry.target;
+
+            if (this.shouldUpdate(entry)) this.callback(target);
+        })
+    }
+}
+
+
+/* ----- Helpers ----- */
 
 // Helper para crear animaciones fluidas
 let liRequestAnimFrame = (function () {
@@ -7,21 +135,27 @@ let liRequestAnimFrame = (function () {
     };
 })();
 
-// Helper para crear animaciones con aceleracion/desaceleración
+// Helper para crear animaciones con aceleración/desaceleración
 function liMathEaseInOutQuad(t, b, c, d) {
     t /= d / 2; if (t < 1) return c / 2 * t * t + b; t--;
     return -c / 2 * (t * (t - 2) - 1) + b;
 };
 
-//Obtener las cordenadas de un elemento con respecto al Viewport
-function liOffset(el) {
+// Obtener las coordenadas de un elemento con respecto al Viewport
+function liOffset(el, root) {
     let rect = el.getBoundingClientRect();
-    let scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-    let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-    return { top: rect.top + scrollTop, left: rect.left + scrollLeft }
+    if (root) {
+        let scrollLeft = root.scrollLeft;
+        let scrollTop = root.scrollTop;
+        return { top: rect.top + scrollTop, left: rect.left + scrollLeft }
+    } else {
+        let scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+        let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        return { top: rect.top + scrollTop, left: rect.left + scrollLeft }
+    }
 }
 
-//Transformar scroll vertical en horizontal
+// Transformar scroll vertical en horizontal
 function liTransformScroll(event) {
     if (!event.deltaY) return;
     event.currentTarget.scrollLeft += event.deltaY + event.deltaX;
@@ -29,14 +163,19 @@ function liTransformScroll(event) {
 }
 
 // Hacer scroll animado hasta la posicion indicada
-function liScrollTo({ to, duration = 500, callback }) {
+function liScrollTo({ to, duration = 500, callback, root }) {
     function move(amount) {
-        document.documentElement.scrollTop = amount;
-        document.body.parentNode.scrollTop = amount;
-        document.body.scrollTop = amount;
+        if (root) {
+            root.scrollTop = amount;
+        } else {
+            document.documentElement.scrollTop = amount;
+            document.body.parentNode.scrollTop = amount;
+            document.body.scrollTop = amount;
+        }
     }
     function position() {
-        return document.documentElement.scrollTop ||
+        if (root) return root.scrollTop;
+        else return document.documentElement.scrollTop ||
             document.body.parentNode.scrollTop ||
             document.body.scrollTop;
     }
@@ -56,121 +195,3 @@ function liScrollTo({ to, duration = 500, callback }) {
     animateScroll();
 }
 
-/* ------------- -------------------- */
-
-class liScrollObserver{
-    constructor(){
-        this.header = document.querySelector('#linavscroll_container');
-        this.sections = [...document.querySelectorAll('h2')];
-        this.scrollRoot = document.querySelector('body');
-        this.headerLinks = [...document.querySelectorAll('#linavscroll_container a')];
-
-        this.prevYPosition = 0;
-        this.direction = 'up';
-
-        this.observer = new IntersectionObserver(this.onIntersect, {
-            root: this.scrollRoot,
-            rootMargin: '0px 0px',
-            threshold: 0.75
-        })
-
-        this.sections.forEach((section) => {
-            this.observer.observe(section)
-        })
-    }
-
-    getTargetSection = (entry) => {
-        const index = this.sections.findIndex((section) => section == entry.target)
-
-        if (index >= this.sections.length - 1) {
-            return entry.target
-        } else {
-            return this.sections[index + 1]
-        }
-    }
-    shouldUpdate = (entry) => {
-        console.log(entry);
-        if (this.direction === 'down' && entry.intersectionRatio <= 0.75) {
-            return true
-        }
-
-        if (this.direction === 'up' && entry.intersectionRatio >= 0.75) {
-            return true
-        }
-
-        return false
-    }
-
-    onIntersect = (entries, observer) => {
-        entries.forEach((entry) => {
-            if (this.scrollRoot.scrollTop > this.prevYPosition) this.direction = 'down'
-            else this.direction = 'up'
-
-            this.prevYPosition = this.scrollRoot.scrollTop
-
-            const target = this.direction === 'down' ? this.getTargetSection(entry) : entry.target
-
-            if (this.shouldUpdate(entry)) this.updateMarker(target)
-        })
-    }
-
-    updateMarker = (target) => {
-
-        let active = this.header.querySelector('a.linavscroll_active');
-        if (active) active.classList.remove('linavscroll_active');
-
-        active = this.header.querySelector('a[href="#' + target.id + '"]');
-        active.classList.add('linavscroll_active');
-
-    }
-
-}
-
-
-/* ------------- -------------------- */
-
-class liNavScroll{
-
-    constructor({ nav_container, section_headers, active_class}){
-        this.nav_container = document.querySelector(nav_container);
-        this.section_headers = document.querySelectorAll(section_headers);
-        this.active_class = active_class;
-
-        this.generateNav();
-
-        new liScrollObserver;
-    }
-
-    generateLink(section){
-        let link = document.createElement("a");
-        link.innerHTML = section.innerHTML;
-        link.href = "#"+section.id;
-
-        link.addEventListener("click", e=>{
-            e.preventDefault();
-
-            const destino = liOffset(section);
-
-            liScrollTo({
-                to: destino.top,
-                callback: this.callback
-            });
-
-            const lastActive = this.nav_container.querySelector('.' + this.active_class) || false;
-            if (lastActive) lastActive.classList.remove(this.active_class);
-            link.classList.add(this.active_class);
-        });
-
-        return link;
-    }
-
-    generateNav(){
-        for (let i = 0; i < this.section_headers.length; i++) {
-            const section = this.section_headers[i];
-
-            const newlink = this.generateLink(section);
-
-            this.nav_container.appendChild(newlink);
-        }
-    }
-}
