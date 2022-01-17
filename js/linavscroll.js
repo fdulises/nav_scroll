@@ -71,7 +71,7 @@ class liScrollObserver{
         this.observer = new IntersectionObserver(this.onIntersect, {
             root: this.scrollRoot,
             rootMargin: '0px 0px',
-            threshold: 0
+            threshold: 0.75
         })
 
         this.sections.forEach((section) => {
@@ -89,11 +89,12 @@ class liScrollObserver{
         }
     }
     shouldUpdate = (entry) => {
-        if (this.direction === 'down' && !entry.isIntersecting) {
+        console.log(entry);
+        if (this.direction === 'down' && entry.intersectionRatio <= 0.75) {
             return true
         }
 
-        if (this.direction === 'up' && entry.isIntersecting) {
+        if (this.direction === 'up' && entry.intersectionRatio >= 0.75) {
             return true
         }
 
@@ -101,7 +102,6 @@ class liScrollObserver{
     }
 
     onIntersect = (entries, observer) => {
-        console.log(entries);
         entries.forEach((entry) => {
             if (this.scrollRoot.scrollTop > this.prevYPosition) this.direction = 'down'
             else this.direction = 'up'
