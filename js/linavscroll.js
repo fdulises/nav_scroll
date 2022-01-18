@@ -1,4 +1,12 @@
 /* ----- Navegación Scroll Automática con marcadores ----- */
+/*
+new liNavScroll({
+    root_container: ".linavscroll_root", // El contenedor global del componente y el contenido
+    nav_container: "#linavscroll_container", // El contenedor de la navegación
+    section_selector: "h2", // Selector de las secciones a navegar
+    active_class: "linavscroll_active" // Nombre de clase para el elemento activo
+});
+*/
 class liNavScroll {
 
     constructor({ nav_container, section_selector, active_class, root_container }) {
@@ -125,7 +133,6 @@ class liScrollObserver{
     }
 }
 
-
 /* ----- Helpers ----- */
 
 // Helper para crear animaciones fluidas
@@ -162,7 +169,7 @@ function liTransformScroll(event) {
     event.preventDefault();
 }
 
-// Hacer scroll animado hasta la posicion indicada
+// Hacer scroll animado hasta la posición indicada
 function liScrollTo({ to, duration = 500, callback, root }) {
     function move(amount) {
         if (root) {
